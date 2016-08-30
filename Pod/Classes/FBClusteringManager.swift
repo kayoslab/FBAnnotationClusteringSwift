@@ -11,19 +11,19 @@ import MapKit
 
 public protocol FBClusteringManagerDelegate {
     
-    func cellSizeFactorForCoordinator(coordinator:FBClusteringManager) -> CGFloat
+    func cellSizeFactorForCoordinator(_ coordinator:FBClusteringManager) -> CGFloat
     
 }
 
-public class FBClusteringManager : NSObject {
+open class FBClusteringManager : NSObject {
     
-    public var delegate:FBClusteringManagerDelegate? = nil
+    open var delegate:FBClusteringManagerDelegate? = nil
     
     var tree:FBQuadTree? = nil
     
     var lock:NSRecursiveLock = NSRecursiveLock()
     
-    public var maxZoomLevel = 19
+    open var maxZoomLevel = 19
     
     public override init(){
         super.init()
@@ -34,24 +34,24 @@ public class FBClusteringManager : NSObject {
         addAnnotations(annotations)
     }
     
-    public func setAnnotations(annotations:[MKAnnotation]){
+    open func setAnnotations(_ annotations:[MKAnnotation]){
         tree = nil
         addAnnotations(annotations)
     }
     
-    public func addAnnotations(annotations:[MKAnnotation]){
+    open func addAnnotations(_ annotations:[MKAnnotation]){
         if tree == nil {
             tree = FBQuadTree()
         }
         
         lock.lock()
         for annotation in annotations {
-            tree!.insertAnnotation(annotation)
+            let _ = tree!.insertAnnotation(annotation)
         }
         lock.unlock()
     }
     
-    public func clusteredAnnotationsWithinMapRect(rect:MKMapRect, withZoomScale zoomScale:Double) -> [MKAnnotation]{
+    open func clusteredAnnotationsWithinMapRect(_ rect:MKMapRect, withZoomScale zoomScale:Double) -> [MKAnnotation]{
         guard !zoomScale.isInfinite else { return [] }
         
         let zoomLevel   = FBClusteringManager.FBZoomScaleToZoomLevel(MKZoomScale(zoomScale))
@@ -113,7 +113,7 @@ public class FBClusteringManager : NSObject {
         return clusteredAnnotations
     }
     
-    public func allAnnotations() -> [MKAnnotation] {
+    open func allAnnotations() -> [MKAnnotation] {
         
         var annotations = [MKAnnotation]()
         
@@ -126,22 +126,22 @@ public class FBClusteringManager : NSObject {
         return annotations
     }
     
-    public func displayAnnotations(annotations: [MKAnnotation], onMapView mapView:MKMapView){
+    open func displayAnnotations(_ annotations: [MKAnnotation], onMapView mapView:MKMapView){
         
-        dispatch_async(dispatch_get_main_queue())  {
+        DispatchQueue.main.async  {
             
             let before = NSMutableSet(array: mapView.annotations)
-            before.removeObject(mapView.userLocation)
+            before.remove(mapView.userLocation)
             let after = NSSet(array: annotations)
             let toKeep = NSMutableSet(set: before)
-            toKeep.intersectSet(after as Set<NSObject>)
+            toKeep.intersect(after as Set<NSObject>)
             let toAdd = NSMutableSet(set: after)
-            toAdd.minusSet(toKeep as Set<NSObject>)
-            var toRemove = NSMutableSet(set: before)
-            toRemove.minusSet(after as Set<NSObject>)
+            toAdd.minus(toKeep as Set<NSObject>)
+            let toRemove = NSMutableSet(set: before)
+            toRemove.minus(after as Set<NSObject>)
             
             let annotationsOnlyPredicate = NSPredicate(format: "SELF isKindOfClass:%@", argumentArray: [FBAnnotationCluster.self])
-            toRemove.filterUsingPredicate(annotationsOnlyPredicate)
+            toRemove.filter(using: annotationsOnlyPredicate)
        
             if let toAddAnnotations = toAdd.allObjects as? [MKAnnotation]{
                 mapView.addAnnotations(toAddAnnotations)
@@ -154,17 +154,17 @@ public class FBClusteringManager : NSObject {
         
     }
     
-    public class func FBZoomScaleToZoomLevel(scale:MKZoomScale) -> Int{
+    open class func FBZoomScaleToZoomLevel(_ scale:MKZoomScale) -> Int{
         let totalTilesAtMaxZoom:Double = MKMapSizeWorld.width / 256.0
         let zoomLevelAtMaxZoom:Int = Int(log2(totalTilesAtMaxZoom))
         let floorLog2ScaleFloat = floor(log2f(Float(scale))) + 0.5
-        guard !floorLog2ScaleFloat.isInfinite else { return floorLog2ScaleFloat.isSignMinus ? 0 : 19 }
+        guard !floorLog2ScaleFloat.isInfinite else { return (floorLog2ScaleFloat.sign == .minus) ? 0 : 19 }
         let sum:Int = zoomLevelAtMaxZoom + Int(floorLog2ScaleFloat)
         let zoomLevel:Int = max(0, sum)
         return zoomLevel;
     }
     
-    public class func FBCellSizeForZoomLevel(zoomLevel: Int) -> CGFloat {
+    open class func FBCellSizeForZoomLevel(_ zoomLevel: Int) -> CGFloat {
         
         switch (zoomLevel) {
         case 13:
@@ -188,7 +188,7 @@ public class FBClusteringManager : NSObject {
         }
     }
     
-    public class func FBCellSizeForZoomScale(zoomScale:MKZoomScale) -> CGFloat {
+    open class func FBCellSizeForZoomScale(_ zoomScale:MKZoomScale) -> CGFloat {
         
         let zoomLevel = FBClusteringManager.FBZoomScaleToZoomLevel(zoomScale)
         return FBClusteringManager.FBCellSizeForZoomLevel(zoomLevel)
